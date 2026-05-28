@@ -2,7 +2,7 @@
 setlocal
 set VERSION=v1.0.0
 set APP_NAME=Spotify LRC Maker
-set DIST_APP_DIR=dist\%APP_NAME%
+set DIST_APP_DIR=dist
 
 echo ========================================
 echo Building %APP_NAME% %VERSION%...
@@ -22,7 +22,7 @@ if not exist .venv\Scripts\python.exe (
 if not exist .venv\Scripts\pyinstaller.exe (
     echo PyInstaller is not installed. Installing it now...
     .venv\Scripts\python.exe -m pip install pyinstaller
-    if %ERRORLEVEL% NEQ 0 (
+    if errorlevel 1 (
         echo.
         echo ERROR: Failed to install PyInstaller
         pause
@@ -38,7 +38,7 @@ echo.
 
 .venv\Scripts\pyinstaller.exe ^
   --name "Spotify LRC Maker" ^
-  --onedir ^
+  --onefile ^
   --windowed ^
   --icon=icon.ico ^
   --add-data "icon.ico;." ^
@@ -53,7 +53,7 @@ echo.
   --collect-all=winrt ^
   main.py
 
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo.
     echo ========================================
     echo ERROR: Build failed
@@ -64,12 +64,20 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo Copying runtime assets...
 copy /y icon.ico "%DIST_APP_DIR%\icon.ico" >nul
-xcopy /e /i /y images "%DIST_APP_DIR%\images" >nul
-
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo.
     echo ========================================
-    echo ERROR: Failed to copy runtime assets
+    echo ERROR: Failed to copy icon.ico
+    echo ========================================
+    pause
+    exit /b 1
+)
+
+xcopy /e /i /y "images" "%DIST_APP_DIR%\images" >nul
+if errorlevel 1 (
+    echo.
+    echo ========================================
+    echo ERROR: Failed to copy images
     echo ========================================
     pause
     exit /b 1
@@ -80,6 +88,7 @@ echo ========================================
 echo Build complete: %APP_NAME% %VERSION%
 echo Output: %DIST_APP_DIR%\Spotify LRC Maker.exe
 echo Icon: %DIST_APP_DIR%\icon.ico
+echo Images: %DIST_APP_DIR%\images
 echo ========================================
 echo.
 pause
