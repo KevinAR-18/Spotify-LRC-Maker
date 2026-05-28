@@ -246,7 +246,7 @@ class MainWindow(QMainWindow):
 
     def _build_status_bar(self) -> None:
         self.statusBar().setObjectName("appStatusBar")
-        self.status_version_label = QLabel(f"Made by SKAR  v{__version__}")
+        self.status_version_label = QLabel(f"v{__version__}")
         self.status_version_label.setObjectName("statusVersionLabel")
         self.statusBar().addPermanentWidget(self.status_version_label)
 
@@ -398,8 +398,6 @@ class MainWindow(QMainWindow):
         self.stamp_button = QPushButton("Stamp Line")
         self.stamp_button.setObjectName("primaryButton")
         self.undo_button = QPushButton("Undo")
-        self.version_label = QLabel(f"v{__version__}")
-        self.version_label.setObjectName("versionLabel")
 
         self.play_pause_button.setObjectName("playButton")
         for button in (self.previous_button, self.next_button, self.undo_button):
@@ -414,7 +412,6 @@ class MainWindow(QMainWindow):
         playback_layout.addWidget(self.duration_label)
         playback_layout.addWidget(self.undo_button)
         playback_layout.addWidget(self.stamp_button)
-        playback_layout.addWidget(self.version_label)
         layout.addWidget(playback)
         return page
 
