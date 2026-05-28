@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from time import monotonic
 from typing import Any
 
 MEDIA_TIMEOUT_SECONDS = 2.5
@@ -22,6 +23,7 @@ class MediaState:
     playback_status: str = "Unavailable"
     position_ms: int | None = None
     duration_ms: int | None = None
+    sampled_at: float = 0.0
     message: str = ""
 
 
@@ -69,6 +71,7 @@ async def _get_media_state() -> MediaState:
         media = await session.try_get_media_properties_async()
 
         is_playing = _is_playing(playback)
+        sampled_at = monotonic()
         position_ms = _timeline_position_ms(
             getattr(timeline, "position", None),
             getattr(timeline, "last_updated_time", None),
@@ -89,6 +92,7 @@ async def _get_media_state() -> MediaState:
             playback_status=_playback_status_name(getattr(playback, "playback_status", None)),
             position_ms=min(position_ms, duration_ms) if duration_ms > 0 else position_ms,
             duration_ms=duration_ms,
+            sampled_at=sampled_at,
         )
     except ImportError as exc:
         return MediaState(

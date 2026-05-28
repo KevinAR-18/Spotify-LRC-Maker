@@ -1,15 +1,10 @@
 import sys
-from pathlib import Path
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from spotify_lrc_generator.resources import resource_path
 from spotify_lrc_generator.ui.main_window import MainWindow
-
-
-def resource_path(relative_path: str) -> Path:
-    base_path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
-    return base_path / relative_path
 
 
 def main() -> int:
@@ -25,6 +20,12 @@ def main() -> int:
     if icon_path.exists():
         window.setWindowIcon(QIcon(str(icon_path)))
     window.resize(1120, 720)
+    screen = app.primaryScreen()
+    if screen is not None:
+        screen_geometry = screen.availableGeometry()
+        window_geometry = window.frameGeometry()
+        window_geometry.moveCenter(screen_geometry.center())
+        window.move(window_geometry.topLeft())
     window.show()
 
     return app.exec()

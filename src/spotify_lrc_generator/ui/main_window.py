@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from time import monotonic
 
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QFont, QIcon
@@ -34,6 +35,7 @@ from spotify_lrc_generator.lrc import (
     shift_timestamp,
 )
 from spotify_lrc_generator.media_session import MediaState
+from spotify_lrc_generator.resources import resource_path
 
 
 class ClickableFrame(QFrame):
@@ -86,7 +88,9 @@ class TitleBar(QFrame):
             if self.window.isMaximized() or self.window.isFullScreen()
             else "icon_maximize.png"
         )
-        self.maximize_button.setIcon(self._icon(icon_name))
+        icon = self._icon(icon_name)
+        self.maximize_button.setIcon(icon)
+        self.maximize_button.setText("□" if icon.isNull() else "")
         self.maximize_button.setToolTip(
             "Restore" if self.window.isMaximized() or self.window.isFullScreen() else "Maximize"
         )
@@ -123,14 +127,23 @@ class TitleBar(QFrame):
     def _window_button(self, icon_name: str, tooltip: str) -> QPushButton:
         button = QPushButton()
         button.setObjectName("windowControlButton")
-        button.setIcon(self._icon(icon_name))
+        icon = self._icon(icon_name)
+        button.setIcon(icon)
+        if icon.isNull():
+            button.setText(
+                {
+                    "icon_minimize.png": "-",
+                    "icon_maximize.png": "□",
+                    "icon_restore.png": "□",
+                    "icon_close.png": "X",
+                }.get(icon_name, "")
+            )
         button.setToolTip(tooltip)
         button.setFixedSize(34, 30)
         return button
 
     def _icon(self, icon_name: str) -> QIcon:
-        project_root = Path(__file__).resolve().parents[3]
-        return QIcon(str(project_root / "images" / icon_name))
+        return QIcon(str(resource_path(f"images/{icon_name}")))
 
 
 class MainWindow(QMainWindow):
@@ -146,6 +159,7 @@ class MainWindow(QMainWindow):
         self.current_index = 0
         self.dragging_progress = False
         self.row_widgets: list[QFrame] = []
+        self.time_labels: list[QLabel] = []
         self.last_state = MediaState(False, message="Waiting for Spotify media session...")
         self.poll_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="media-poll")
         self.command_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="media-command")
@@ -157,7 +171,7 @@ class MainWindow(QMainWindow):
         self._build_status_bar()
 
         self.poll_timer = QTimer(self)
-        self.poll_timer.setInterval(350)
+        self.poll_timer.setInterval(250)
         self.poll_timer.timeout.connect(self._poll_media_state)
         self.poll_timer.start()
         self._poll_media_state()
@@ -395,12 +409,13 @@ class MainWindow(QMainWindow):
         self.progress_slider.setEnabled(True)
         self.progress_slider.setTracking(True)
         self.progress_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.stamp_button = QPushButton("Stamp Line")
-        self.stamp_button.setObjectName("primaryButton")
         self.undo_button = QPushButton("Undo")
+        self.clear_all_timestamps_button = QPushButton("Clear All")
 
         self.play_pause_button.setObjectName("playButton")
-        for button in (self.previous_button, self.next_button, self.undo_button):
+        self.undo_button.setObjectName("secondaryActionButton")
+        self.clear_all_timestamps_button.setObjectName("dangerActionButton")
+        for button in (self.previous_button, self.next_button):
             button.setObjectName("roundButton")
 
         playback_layout.addWidget(self.play_pause_button)
@@ -411,7 +426,7 @@ class MainWindow(QMainWindow):
         playback_layout.addWidget(self.progress_slider, 1)
         playback_layout.addWidget(self.duration_label)
         playback_layout.addWidget(self.undo_button)
-        playback_layout.addWidget(self.stamp_button)
+        playback_layout.addWidget(self.clear_all_timestamps_button)
         layout.addWidget(playback)
         return page
 
@@ -423,8 +438,8 @@ class MainWindow(QMainWindow):
         self.clear_button.clicked.connect(self.clear_lyrics)
         self.continue_button.clicked.connect(self.go_to_stamp_page)
         self.back_button.clicked.connect(lambda: self.stack.setCurrentWidget(self.input_page))
-        self.stamp_button.clicked.connect(self.stamp_next_line)
         self.undo_button.clicked.connect(self.undo_stamp)
+        self.clear_all_timestamps_button.clicked.connect(self.clear_all_timestamps)
         self.export_button.clicked.connect(self.export_file)
         self.prev_line_button.clicked.connect(lambda: self.move_active_line(-1))
         self.next_line_button.clicked.connect(self.stamp_next_line)
@@ -634,6 +649,29 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 color: #f2f2f2;
             }
+            #secondaryActionButton, #dangerActionButton {
+                min-width: 82px;
+                min-height: 36px;
+                border-radius: 8px;
+                padding: 7px 14px;
+                font-weight: 700;
+            }
+            #secondaryActionButton {
+                background: #262626;
+                color: #edf6ff;
+                border: 1px solid #3a3a3a;
+            }
+            #secondaryActionButton:hover {
+                background: #323232;
+            }
+            #dangerActionButton {
+                background: #331f1f;
+                color: #ffdede;
+                border: 1px solid #7a3434;
+            }
+            #dangerActionButton:hover {
+                background: #4a2424;
+            }
             #navButton, #navButtonLight {
                 min-height: 48px;
                 min-width: 190px;
@@ -683,6 +721,19 @@ class MainWindow(QMainWindow):
     def _run_media_command(self, command) -> None:
         self.command_executor.submit(command)
 
+    def _current_media_position_ms(self) -> int | None:
+        position = self.last_state.position_ms
+        if position is None:
+            return None
+
+        if self.last_state.playback_status.lower() == "playing" and self.last_state.sampled_at:
+            elapsed_ms = int((monotonic() - self.last_state.sampled_at) * 1000)
+            position += max(elapsed_ms, 0)
+
+        if self.last_state.duration_ms:
+            position = min(position, self.last_state.duration_ms)
+        return max(position, 0)
+
     def _render_media_state(self) -> None:
         state = self.last_state
         self.title_label.setText(state.title or "-")
@@ -693,7 +744,7 @@ class MainWindow(QMainWindow):
         self.status_label.setText(state.playback_status)
         self.message_label.setText("" if state.available else state.message)
 
-        position = state.position_ms or 0
+        position = self._current_media_position_ms() or 0
         duration = state.duration_ms or 0
         self.position_label.setText(format_position(position))
         self.duration_label.setText(format_position(duration))
@@ -752,7 +803,8 @@ class MainWindow(QMainWindow):
             self.go_to_stamp_page()
         if not self.lines:
             return
-        if self.last_state.position_ms is None:
+        position_ms = self._current_media_position_ms()
+        if position_ms is None:
             self.statusBar().showMessage("Spotify position is not available yet.")
             return
 
@@ -761,13 +813,11 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("No next lyric line to stamp.")
             return
 
-        self.lines[index].timestamp_ms = self.last_state.position_ms
-        self.current_index = index
-        self._render_rows()
+        self.lines[index].timestamp_ms = position_ms
+        self._refresh_row_timestamp(index)
+        self._set_active_line(self._next_stamp_index_after(index))
         self._scroll_to_active_line()
-        self.statusBar().showMessage(
-            f"Stamped line {index + 1} at {format_position(self.last_state.position_ms)}."
-        )
+        self.statusBar().showMessage(f"Stamped line {index + 1} at {format_position(position_ms)}.")
 
     def undo_stamp(self) -> None:
         stamped_indexes = [idx for idx, line in enumerate(self.lines) if line.timestamp_ms is not None]
@@ -776,32 +826,45 @@ class MainWindow(QMainWindow):
             return
         index = stamped_indexes[-1]
         self.lines[index].timestamp_ms = None
-        self.current_index = index
-        self._render_rows()
+        self._set_active_line(index)
+        self._refresh_row_timestamp(index)
         self._scroll_to_active_line()
         self.statusBar().showMessage(f"Removed timestamp from line {index + 1}.")
+
+    def clear_all_timestamps(self) -> None:
+        cleared_count = sum(1 for line in self.lines if line.timestamp_ms is not None)
+        if cleared_count == 0:
+            self.statusBar().showMessage("No timestamps to clear.")
+            return
+
+        for line in self.lines:
+            line.timestamp_ms = None
+        for index in range(len(self.time_labels)):
+            self._refresh_row_timestamp(index)
+        self._set_active_line(0)
+        self._scroll_to_active_line()
+        self.statusBar().showMessage(f"Cleared {cleared_count} timestamp{'s' if cleared_count != 1 else ''}.")
 
     def move_active_line(self, delta: int) -> None:
         if not self.lines:
             return
-        self.current_index = min(max(self.current_index + delta, 0), len(self.lines) - 1)
-        self._render_rows()
+        self._set_active_line(min(max(self.current_index + delta, 0), len(self.lines) - 1))
         self._scroll_to_active_line()
 
     def adjust_line(self, index: int, delta_ms: int) -> None:
         if not 0 <= index < len(self.lines):
             return
         self.lines[index].timestamp_ms = shift_timestamp(self.lines[index].timestamp_ms, delta_ms)
-        self.current_index = index
-        self._render_rows()
+        self._set_active_line(index)
+        self._refresh_row_timestamp(index)
         self._scroll_to_active_line()
 
     def clear_line_timestamp(self, index: int) -> None:
         if not 0 <= index < len(self.lines):
             return
         self.lines[index].timestamp_ms = None
-        self.current_index = index
-        self._render_rows()
+        self._set_active_line(index)
+        self._refresh_row_timestamp(index)
         self._scroll_to_active_line()
 
     def preview_line(self, index: int) -> None:
@@ -847,6 +910,7 @@ class MainWindow(QMainWindow):
 
     def _render_rows(self) -> None:
         self.row_widgets = []
+        self.time_labels = []
         while self.rows_layout.count() > 0:
             item = self.rows_layout.takeAt(0)
             widget = item.widget()
@@ -858,6 +922,24 @@ class MainWindow(QMainWindow):
             self.row_widgets.append(row)
             self.rows_layout.addWidget(row)
         self.rows_layout.addStretch()
+
+    def _refresh_row_timestamp(self, index: int) -> None:
+        if 0 <= index < len(self.time_labels):
+            self.time_labels[index].setText(format_position(self.lines[index].timestamp_ms))
+
+    def _set_active_line(self, index: int) -> None:
+        if not 0 <= index < len(self.lines):
+            return
+
+        previous_index = self.current_index
+        self.current_index = index
+        for row_index in {previous_index, index}:
+            if 0 <= row_index < len(self.row_widgets):
+                row = self.row_widgets[row_index]
+                row.setProperty("active", row_index == self.current_index)
+                row.style().unpolish(row)
+                row.style().polish(row)
+                row.update()
 
     def _scroll_to_active_line(self) -> None:
         if not 0 <= self.current_index < len(self.row_widgets):
@@ -899,6 +981,7 @@ class MainWindow(QMainWindow):
         time_label = QLabel(format_position(line.timestamp_ms))
         time_label.setObjectName("timePill")
         time_label.setAlignment(Qt.AlignCenter)
+        self.time_labels.append(time_label)
 
         control_group = QFrame()
         control_group.setObjectName("controlGroup")
@@ -928,9 +1011,8 @@ class MainWindow(QMainWindow):
     def select_line(self, index: int) -> None:
         if not 0 <= index < len(self.lines):
             return
-        self.current_index = index
         timestamp_ms = self.lines[index].timestamp_ms
-        self._render_rows()
+        self._set_active_line(index)
         self._scroll_to_active_line()
         if timestamp_ms is None:
             self.statusBar().showMessage(f"Selected line {index + 1}.")
@@ -963,6 +1045,12 @@ class MainWindow(QMainWindow):
         if self.lines[self.current_index].timestamp_ms is None:
             return self.current_index
         return min(self.current_index + 1, len(self.lines) - 1)
+
+    def _next_stamp_index_after(self, index: int) -> int:
+        for next_index in range(index + 1, len(self.lines)):
+            if self.lines[next_index].timestamp_ms is None:
+                return next_index
+        return index
 
     def _update_line_count(self) -> None:
         count = len(parse_plain_lyrics(self.raw_editor.toPlainText()))

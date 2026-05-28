@@ -2,6 +2,7 @@
 setlocal
 set VERSION=v1.0.0
 set APP_NAME=Spotify LRC Maker
+set DIST_APP_DIR=dist\%APP_NAME%
 
 echo ========================================
 echo Building %APP_NAME% %VERSION%...
@@ -37,7 +38,7 @@ echo.
 
 .venv\Scripts\pyinstaller.exe ^
   --name "Spotify LRC Maker" ^
-  --onefile ^
+  --onedir ^
   --windowed ^
   --icon=icon.ico ^
   --add-data "icon.ico;." ^
@@ -61,13 +62,14 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-echo Copying icon.ico to dist...
-copy /y icon.ico dist\icon.ico >nul
+echo Copying runtime assets...
+copy /y icon.ico "%DIST_APP_DIR%\icon.ico" >nul
+xcopy /e /i /y images "%DIST_APP_DIR%\images" >nul
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ========================================
-    echo ERROR: Failed to copy icon.ico to dist
+    echo ERROR: Failed to copy runtime assets
     echo ========================================
     pause
     exit /b 1
@@ -76,8 +78,8 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 echo ========================================
 echo Build complete: %APP_NAME% %VERSION%
-echo Output: dist\Spotify LRC Maker.exe
-echo Icon: dist\icon.ico
+echo Output: %DIST_APP_DIR%\Spotify LRC Maker.exe
+echo Icon: %DIST_APP_DIR%\icon.ico
 echo ========================================
 echo.
 pause
