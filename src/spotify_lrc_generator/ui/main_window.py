@@ -4,7 +4,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from time import monotonic
 
-from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtCore import QPoint, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -156,6 +156,7 @@ class MainWindow(QMainWindow):
 
         self.lines: list[LyricLine] = []
         self.loaded_lrc_lines: list[LyricLine] = []
+        self.current_lrc_path: Path | None = None
         self.current_index = 0
         self.dragging_progress = False
         self.row_widgets: list[QFrame] = []
@@ -166,6 +167,7 @@ class MainWindow(QMainWindow):
         self.pending_state: Future[MediaState] | None = None
 
         self._build_ui()
+        self._sync_file_action_buttons()
         self._connect_actions()
         self._apply_styles()
         self._build_status_bar()
@@ -354,6 +356,10 @@ class MainWindow(QMainWindow):
         track_text.addWidget(self.artist_label)
         self.status_label = QLabel("Waiting")
         self.status_label.setObjectName("statusPill")
+        self.save_button = QPushButton("Save")
+        self.save_button.setObjectName("secondaryButton")
+        self.save_as_button = QPushButton("Save As")
+        self.save_as_button.setObjectName("secondaryButton")
         self.export_button = QPushButton("Export .lrc")
         self.export_button.setObjectName("primaryButton")
 
@@ -361,6 +367,8 @@ class MainWindow(QMainWindow):
         header_layout.addSpacing(12)
         header_layout.addLayout(track_text, 1)
         header_layout.addWidget(self.status_label)
+        header_layout.addWidget(self.save_button)
+        header_layout.addWidget(self.save_as_button)
         header_layout.addWidget(self.export_button)
         layout.addWidget(header)
 
@@ -389,7 +397,7 @@ class MainWindow(QMainWindow):
         self.prev_line_button.setObjectName("navButton")
         self.next_line_button.setObjectName("navButtonLight")
         self.prev_line_button.setToolTip("Move to previous lyric line")
-        self.next_line_button.setToolTip("Stamp current lyric line and move down")
+        self.next_line_button.setToolTip("Stamp the selected lyric, then target the next unstamped line")
         nav.addWidget(self.prev_line_button)
         nav.addWidget(self.next_line_button)
         layout.addLayout(nav)
@@ -418,8 +426,8 @@ class MainWindow(QMainWindow):
         for button in (self.previous_button, self.next_button):
             button.setObjectName("roundButton")
 
-        playback_layout.addWidget(self.play_pause_button)
         playback_layout.addWidget(self.previous_button)
+        playback_layout.addWidget(self.play_pause_button)
         playback_layout.addWidget(self.next_button)
         playback_layout.addSpacing(8)
         playback_layout.addWidget(self.position_label)
@@ -440,6 +448,8 @@ class MainWindow(QMainWindow):
         self.back_button.clicked.connect(lambda: self.stack.setCurrentWidget(self.input_page))
         self.undo_button.clicked.connect(self.undo_stamp)
         self.clear_all_timestamps_button.clicked.connect(self.clear_all_timestamps)
+        self.save_button.clicked.connect(self.save_file)
+        self.save_as_button.clicked.connect(self.save_file_as)
         self.export_button.clicked.connect(self.export_file)
         self.prev_line_button.clicked.connect(lambda: self.move_active_line(-1))
         self.next_line_button.clicked.connect(self.stamp_next_line)
@@ -453,9 +463,11 @@ class MainWindow(QMainWindow):
     def start_new_lrc(self) -> None:
         self.loaded_lrc_lines = []
         self.lines = []
+        self.current_lrc_path = None
         self.current_index = 0
         self.raw_editor.clear()
         self._update_line_count()
+        self._sync_file_action_buttons()
         self.stack.setCurrentWidget(self.input_page)
         self.statusBar().showMessage("Paste lyrics manually, then continue to timestamp mode.")
 
@@ -472,9 +484,11 @@ class MainWindow(QMainWindow):
         parsed = parse_lrc(input_path.read_text(encoding="utf-8"))
         self.loaded_lrc_lines = parsed
         self.lines = [LyricLine(line.text, line.timestamp_ms) for line in parsed]
+        self.current_lrc_path = input_path
         self.current_index = 0
         self.raw_editor.setPlainText("\n".join(line.text for line in parsed))
         self._update_line_count()
+        self._sync_file_action_buttons()
         self.stack.setCurrentWidget(self.input_page)
         self.statusBar().showMessage(f"Loaded {len(parsed)} lines from {input_path.name}.")
 
@@ -508,8 +522,14 @@ class MainWindow(QMainWindow):
             #windowControlButton:hover {
                 background: #202020;
             }
+            #windowControlButton:pressed {
+                background: #2d2d2d;
+            }
             #windowCloseButton:hover {
                 background: #c83f3f;
+            }
+            #windowCloseButton:pressed {
+                background: #a82f2f;
             }
             #pageTitle {
                 color: #4aa3ff;
@@ -538,18 +558,43 @@ class MainWindow(QMainWindow):
             QPushButton:hover {
                 background: #303030;
             }
+            QPushButton:pressed {
+                background: #3a3a3a;
+                padding-top: 10px;
+                padding-bottom: 8px;
+            }
             #primaryButton {
                 background: #236dff;
                 color: white;
+            }
+            #primaryButton:hover {
+                background: #357cff;
+            }
+            #primaryButton:pressed {
+                background: #1557d6;
             }
             #secondaryButton {
                 background: #1e1e1e;
                 color: #e8f3ff;
                 border: 1px solid #343434;
             }
+            #secondaryButton:hover {
+                background: #292929;
+                border: 1px solid #4a4a4a;
+            }
+            #secondaryButton:pressed {
+                background: #151515;
+            }
             #ghostButton {
                 background: transparent;
                 border: 1px solid #343434;
+            }
+            #ghostButton:hover {
+                background: #1c1c1c;
+                border: 1px solid #4d4d4d;
+            }
+            #ghostButton:pressed {
+                background: #111111;
             }
             #trackHeader, #playbackBar {
                 background: #101010;
@@ -623,6 +668,9 @@ class MainWindow(QMainWindow):
             #smallButton:hover {
                 background: #3a3a3a;
             }
+            #smallButton:pressed {
+                background: #4a4a4a;
+            }
             #iconButton, #playRowButton, #roundButton {
                 background: #2a2a2a;
                 color: #edf6ff;
@@ -636,6 +684,12 @@ class MainWindow(QMainWindow):
                 min-width: 46px;
                 max-width: 54px;
             }
+            #iconButton:hover, #playRowButton:hover {
+                background: #373737;
+            }
+            #iconButton:pressed, #playRowButton:pressed {
+                background: #484848;
+            }
             #playButton {
                 background: #ffffff;
                 color: #111111;
@@ -645,9 +699,21 @@ class MainWindow(QMainWindow):
                 border-radius: 18px;
                 padding: 6px 10px;
             }
+            #playButton:hover {
+                background: #e8f3ff;
+            }
+            #playButton:pressed {
+                background: #b9d8ff;
+            }
             #roundButton {
                 background: transparent;
                 color: #f2f2f2;
+            }
+            #roundButton:hover {
+                background: #252525;
+            }
+            #roundButton:pressed {
+                background: #383838;
             }
             #secondaryActionButton, #dangerActionButton {
                 min-width: 82px;
@@ -664,6 +730,9 @@ class MainWindow(QMainWindow):
             #secondaryActionButton:hover {
                 background: #323232;
             }
+            #secondaryActionButton:pressed {
+                background: #1b1b1b;
+            }
             #dangerActionButton {
                 background: #331f1f;
                 color: #ffdede;
@@ -671,6 +740,9 @@ class MainWindow(QMainWindow):
             }
             #dangerActionButton:hover {
                 background: #4a2424;
+            }
+            #dangerActionButton:pressed {
+                background: #5c2b2b;
             }
             #navButton, #navButtonLight {
                 min-height: 48px;
@@ -682,9 +754,23 @@ class MainWindow(QMainWindow):
                 background: #333333;
                 color: #9a9a9a;
             }
+            #navButton:hover {
+                background: #414141;
+                color: #c8c8c8;
+            }
+            #navButton:pressed {
+                background: #262626;
+            }
             #navButtonLight {
                 background: #f5f5f5;
                 color: #101010;
+            }
+            #navButtonLight:hover {
+                background: #dceaff;
+                color: #0d2b5c;
+            }
+            #navButtonLight:pressed {
+                background: #aecaef;
             }
             QSlider::groove:horizontal {
                 background: #303030;
@@ -773,8 +859,9 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("No lyric lines to timestamp.")
             return
         self._render_rows()
+        self._sync_file_action_buttons()
         self.stack.setCurrentWidget(self.stamp_page)
-        self.statusBar().showMessage("Press Space or Stamp Line to timestamp the active lyric.")
+        self.statusBar().showMessage("Press Space or the down button to timestamp the active lyric.")
 
     def _lines_from_editor(self) -> list[LyricLine]:
         plain_lines = parse_plain_lyrics(self.raw_editor.toPlainText())
@@ -792,10 +879,12 @@ class MainWindow(QMainWindow):
     def clear_lyrics(self) -> None:
         self.lines = []
         self.loaded_lrc_lines = []
+        self.current_lrc_path = None
         self.current_index = 0
         self.raw_editor.clear()
         self._update_line_count()
         self._render_rows()
+        self._sync_file_action_buttons()
         self.statusBar().showMessage("Cleared lyrics.")
 
     def stamp_next_line(self) -> None:
@@ -815,7 +904,7 @@ class MainWindow(QMainWindow):
 
         self.lines[index].timestamp_ms = position_ms
         self._refresh_row_timestamp(index)
-        self._set_active_line(self._next_stamp_index_after(index))
+        self._set_active_line(index)
         self._scroll_to_active_line()
         self.statusBar().showMessage(f"Stamped line {index + 1} at {format_position(position_ms)}.")
 
@@ -870,6 +959,8 @@ class MainWindow(QMainWindow):
     def preview_line(self, index: int) -> None:
         if not 0 <= index < len(self.lines):
             return
+        self._set_active_line(index)
+        self._scroll_to_active_line()
         timestamp_ms = self.lines[index].timestamp_ms
         if timestamp_ms is None:
             self.statusBar().showMessage("Line has no timestamp to preview.")
@@ -882,17 +973,10 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("No lyrics to export.")
             return
 
-        unstamped = count_unstamped(self.lines)
-        if unstamped:
-            answer = QMessageBox.question(
-                self,
-                "Export incomplete lyrics",
-                f"{unstamped} lyric lines do not have timestamps and will be skipped. Continue?",
-            )
-            if answer != QMessageBox.Yes:
-                return
+        if not self._confirm_incomplete_export("Export incomplete lyrics"):
+            return
 
-        suggested = self._suggested_filename()
+        suggested = str(self._documents_path() / self._suggested_filename())
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Export LRC",
@@ -902,11 +986,75 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
+        output_path = self._normalized_lrc_path(path)
+        self._write_lrc_file(output_path)
+        self.statusBar().showMessage(f"Exported {output_path}")
+
+    def save_file(self) -> None:
+        if self.current_lrc_path is None:
+            self.save_file_as()
+            return
+        if not self._confirm_incomplete_export("Save incomplete lyrics"):
+            return
+        self._write_lrc_file(self.current_lrc_path)
+        self.statusBar().showMessage(f"Saved {self.current_lrc_path}")
+
+    def save_file_as(self) -> None:
+        if not self.lines:
+            self.statusBar().showMessage("No lyrics to save.")
+            return
+        if not self._confirm_incomplete_export("Save incomplete lyrics"):
+            return
+
+        suggested_name = self.current_lrc_path.name if self.current_lrc_path else self._suggested_filename()
+        suggested = str(self._documents_path() / suggested_name)
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save LRC As",
+            suggested,
+            "LRC files (*.lrc);;Text files (*.txt);;All files (*)",
+        )
+        if not path:
+            return
+
+        output_path = self._normalized_lrc_path(path)
+        self._write_lrc_file(output_path)
+        self.current_lrc_path = output_path
+        self._sync_file_action_buttons()
+        self.statusBar().showMessage(f"Saved {output_path}")
+
+    def _confirm_incomplete_export(self, title: str) -> bool:
+        unstamped = count_unstamped(self.lines)
+        if not unstamped:
+            return True
+        answer = QMessageBox.question(
+            self,
+            title,
+            f"{unstamped} lyric lines do not have timestamps and will be skipped. Continue?",
+        )
+        return answer == QMessageBox.Yes
+
+    def _write_lrc_file(self, output_path: Path) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(export_lrc(self.lines), encoding="utf-8")
+
+    def _normalized_lrc_path(self, path: str | Path) -> Path:
         output_path = Path(path)
         if output_path.suffix.lower() != ".lrc":
             output_path = output_path.with_suffix(".lrc")
-        output_path.write_text(export_lrc(self.lines), encoding="utf-8")
-        self.statusBar().showMessage(f"Exported {output_path}")
+        return output_path
+
+    def _documents_path(self) -> Path:
+        documents = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        if documents:
+            return Path(documents)
+        return Path.home() / "Documents"
+
+    def _sync_file_action_buttons(self) -> None:
+        editing_existing = self.current_lrc_path is not None
+        self.save_button.setVisible(editing_existing)
+        self.save_as_button.setVisible(editing_existing)
+        self.export_button.setVisible(not editing_existing)
 
     def _render_rows(self) -> None:
         self.row_widgets = []
@@ -1045,12 +1193,6 @@ class MainWindow(QMainWindow):
         if self.lines[self.current_index].timestamp_ms is None:
             return self.current_index
         return min(self.current_index + 1, len(self.lines) - 1)
-
-    def _next_stamp_index_after(self, index: int) -> int:
-        for next_index in range(index + 1, len(self.lines)):
-            if self.lines[next_index].timestamp_ms is None:
-                return next_index
-        return index
 
     def _update_line_count(self) -> None:
         count = len(parse_plain_lyrics(self.raw_editor.toPlainText()))

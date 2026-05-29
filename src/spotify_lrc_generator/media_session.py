@@ -64,7 +64,13 @@ async def _get_media_state() -> MediaState:
     try:
         session = await _get_spotify_session()
         if session is None:
-            return MediaState(False, message="Spotify media session not found.")
+            return MediaState(
+                False,
+                message=(
+                    "Spotify media session not found. Play audio in Spotify Desktop, then check "
+                    "Windows media controls. If it still fails, restart Spotify."
+                ),
+            )
 
         timeline = session.get_timeline_properties()
         playback = session.get_playback_info()
@@ -158,13 +164,20 @@ async def _get_spotify_session() -> Any | None:
 
     manager = await GlobalSystemMediaTransportControlsSessionManager.request_async()
     current = manager.get_current_session()
-    if current and "spotify" in ((_safe_call(current, "source_app_user_model_id") or "").lower()):
+    if _is_spotify_session(current):
         return current
 
     for session in manager.get_sessions():
-        if "spotify" in ((_safe_call(session, "source_app_user_model_id") or "").lower()):
+        if _is_spotify_session(session):
             return session
     return None
+
+
+def _is_spotify_session(session: Any | None) -> bool:
+    if session is None:
+        return False
+    app_id = (_safe_call(session, "source_app_user_model_id") or "").lower()
+    return any(identifier in app_id for identifier in ("spotify", "spotify.exe", "spotifyab"))
 
 
 def _safe_call(obj: Any, name: str) -> Any:
