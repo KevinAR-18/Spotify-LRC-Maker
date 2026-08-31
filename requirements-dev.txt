@@ -1,3 +1,4 @@
+# Development-only tools. This file also installs the runtime requirements.
 -r requirements.txt
 pytest>=8.0,<9
 ruff>=0.6,<1

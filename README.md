@@ -11,6 +11,8 @@ Spotify LRC Maker is a Windows desktop editor for creating and correcting line-s
 
 ## Setup
 
+`requirements.txt` contains only the packages required to run or build the application.
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
@@ -56,13 +58,13 @@ The executable is created at `dist\Spotify LRC Maker.exe`.
 
 ## Development And Tests
 
+`requirements-dev.txt` installs the runtime packages above plus development-only tools (`pytest` and `ruff`). It is not required to run the app.
+
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m ruff check src tests
 .\.venv\Scripts\python.exe -m pytest
 ```
-
-GitHub Actions runs linting and tests on Windows with Python 3.10 and 3.12.
 
 ## License
 
