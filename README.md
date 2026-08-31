@@ -2,18 +2,6 @@
 
 Spotify LRC Maker is a Windows desktop editor for creating and correcting line-synced `.lrc` lyric files while following Spotify Desktop playback. It reads the local Windows media session, so normal timestamping does not require Spotify credentials or a login flow.
 
-## What's New In 1.2.0
-
-- Stable lyric lines: matching timestamps survive edits and navigation between the editor and timestamp views.
-- Chronological Undo and Redo for lyric edits, stamps, corrections, bulk shifts, clears, and imports.
-- Capture offset and bulk timestamp shifting for fast latency correction.
-- Quality Check detects incomplete, duplicate, out-of-order, empty, and out-of-duration timestamps before saving.
-- Atomic UTF-8 save, recoverable file errors, unsaved-change confirmation, autosave, and startup draft recovery.
-- Spotify track lock prevents accidental timestamping after the active track changes.
-- Spotify command feedback and disabled playback controls while no media session is available.
-- Recent files, remembered folders, and `.lrc` / `.txt` drag-and-drop.
-- Optional LRCLIB search and explicit result picker for synced or plain lyrics. It only contacts LRCLIB when you choose **Import from LRCLIB**.
-
 ## Requirements
 
 - Windows 10 or Windows 11.
