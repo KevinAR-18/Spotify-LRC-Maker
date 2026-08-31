@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set VERSION=v1.1.0
+set VERSION=v1.2.0
 set APP_NAME=Spotify LRC Maker
 set DIST_APP_DIR=dist
 

@@ -1,26 +1,25 @@
 # Spotify LRC Maker
 
-Spotify LRC Maker is a Windows desktop app for creating and editing `.lrc` lyric files while syncing timestamps from Spotify Desktop playback.
+Spotify LRC Maker is a Windows desktop editor for creating and correcting line-synced `.lrc` lyric files while following Spotify Desktop playback. It reads the local Windows media session, so normal timestamping does not require Spotify credentials or a login flow.
 
-The app is focused on manual, accurate line-level LRC creation. Paste lyrics, play a song in Spotify, and press the stamp button when the next lyric line starts. Spotify LRC Maker reads the current track position from the local Windows media session, so it does not require Spotify API credentials.
+## What's New In 1.2.0
 
-## Features
-
-- Create a new LRC from plain pasted lyrics.
-- Open and modify an existing `.lrc` file.
-- Read Spotify Desktop metadata, playback status, duration, and progress from Windows media sessions.
-- Control Spotify playback with play/pause, previous, next, row preview, and draggable progress seek.
-- Stamp lyric timestamps using Spotify's current playback position.
-- Adjust timestamps per line with small and large step controls.
-- Click stamped lyric rows to preview playback from that timestamp.
-- Export standard line-level LRC format: `[mm:ss.xx]lyric`.
-- Custom dark UI with internal title bar, app icon, fullscreen toggle, and version label.
+- Stable lyric lines: matching timestamps survive edits and navigation between the editor and timestamp views.
+- Chronological Undo and Redo for lyric edits, stamps, corrections, bulk shifts, clears, and imports.
+- Capture offset and bulk timestamp shifting for fast latency correction.
+- Quality Check detects incomplete, duplicate, out-of-order, empty, and out-of-duration timestamps before saving.
+- Atomic UTF-8 save, recoverable file errors, unsaved-change confirmation, autosave, and startup draft recovery.
+- Spotify track lock prevents accidental timestamping after the active track changes.
+- Spotify command feedback and disabled playback controls while no media session is available.
+- Recent files, remembered folders, and `.lrc` / `.txt` drag-and-drop.
+- Optional LRCLIB search and explicit result picker for synced or plain lyrics. It only contacts LRCLIB when you choose **Import from LRCLIB**.
 
 ## Requirements
 
 - Windows 10 or Windows 11.
-- Spotify Desktop app.
+- Spotify Desktop for playback control and timestamp capture.
 - Python 3.10 or newer.
+- Internet access only when using the optional LRCLIB import.
 
 ## Setup
 
@@ -30,41 +29,53 @@ python -m venv .venv
 .\.venv\Scripts\python.exe main.py
 ```
 
-Start Spotify Desktop and play a song before entering the timestamp screen.
+Start Spotify Desktop and play a track before opening the timestamp screen. The app locks the current track on entry; if Spotify changes tracks, confirm the relock prompt before continuing to stamp.
+
+## Main Workflow
+
+1. Choose **New LRC**, open an existing file, drop an `.lrc` / `.txt` file onto the app, or optionally import from LRCLIB.
+2. Edit lyric text. Existing matching lines preserve their timestamps.
+3. Set an optional capture offset, then continue to timestamp mode.
+4. Press `Space` to stamp the next unstamped line. Use per-line controls or **Shift all** to correct timing.
+5. Run **Quality Check**, then save. Unstamped lines are intentionally omitted from the exported LRC after confirmation.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Space` | Stamp the next unstamped line in timestamp mode |
+| `Ctrl+S` | Save |
+| `Ctrl+Shift+S` | Save As |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` | Redo |
+| `Ctrl+I` | Import from LRCLIB |
+| `Ctrl+Shift+Q` | Quality Check |
+| `F11` | Toggle fullscreen |
+
+## LRCLIB
+
+LRCLIB import is optional. The application sends only the current Spotify title and artist to the LRCLIB search endpoint when you explicitly request an import. Search results are shown in a picker; nothing replaces the current draft until you select a result and confirm. The app continues to work fully offline for manual editing and timestamping.
 
 ## Build
 
-Use the included build script:
+Use the included build script from a prepared virtual environment:
 
 ```bat
-buildbat.bat
+build.bat
 ```
 
-The script uses PyInstaller and outputs:
+The executable is created at `dist\Spotify LRC Maker.exe`.
 
-```text
-dist\Spotify LRC Maker.exe
+## Development And Tests
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m ruff check src tests
+.\.venv\Scripts\python.exe -m pytest
 ```
 
-If PyInstaller is not installed in `.venv`, the script installs it automatically.
-
-## Project Structure
-
-```text
-main.py
-requirements.txt
-buildbat.bat
-icon.ico
-images/
-src/spotify_lrc_generator/
-```
-
-## Notes
-
-- Spotify LRC Maker uses PyWinRT Windows media session packages instead of `winsdk`, avoiding local native wheel builds.
-- No Spotify API key or login flow is required.
-- Generated build outputs such as `dist/`, `build/`, `.spec`, `.exe`, cache folders, and `.txt` notes are ignored by Git.
+GitHub Actions runs linting and tests on Windows with Python 3.10 and 3.12.
 
 ## License
 
-MIT License. See `LICENSE`.
+MIT License. See [LICENSE](LICENSE).
