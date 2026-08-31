@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSlider,
     QSpinBox,
     QStackedWidget,
@@ -191,60 +192,96 @@ class MainWindow(QMainWindow):
     def _build_stamp_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(18, 12, 18, 12)
-        header = QHBoxLayout()
-        self.back_button = QPushButton("Edit lyrics")
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        header = QFrame()
+        header.setObjectName("trackHeader")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(24, 14, 24, 14)
+        self.back_button = QPushButton("Back")
+        self.back_button.setObjectName("ghostButton")
+        track_text = QVBoxLayout()
         self.track_label = QLabel("Waiting for Spotify")
-        self.track_label.setObjectName("track")
+        self.track_label.setObjectName("trackTitle")
         self.track_status = QLabel("Unavailable")
-        self.track_status.setObjectName("muted")
+        self.track_status.setObjectName("trackArtist")
+        track_text.addWidget(self.track_label)
+        track_text.addWidget(self.track_status)
         self.save_button = QPushButton("Save")
+        self.save_button.setObjectName("secondaryButton")
         self.save_as_button = QPushButton("Save As")
+        self.save_as_button.setObjectName("secondaryButton")
         self.quality_button = QPushButton("Quality Check")
-        header.addWidget(self.back_button)
-        header.addWidget(self.track_label, 1)
-        header.addWidget(self.track_status)
-        header.addWidget(self.quality_button)
-        header.addWidget(self.save_button)
-        header.addWidget(self.save_as_button)
+        self.quality_button.setObjectName("secondaryButton")
+        self.shift_all_button = QPushButton("Shift All")
+        self.shift_all_button.setObjectName("secondaryButton")
+        header_layout.addWidget(self.back_button)
+        header_layout.addSpacing(12)
+        header_layout.addLayout(track_text, 1)
+        header_layout.addWidget(self.quality_button)
+        header_layout.addWidget(self.shift_all_button)
+        header_layout.addWidget(self.save_button)
+        header_layout.addWidget(self.save_as_button)
         self.message_label = QLabel()
-        self.message_label.setObjectName("warning")
+        self.message_label.setObjectName("warningText")
         self.message_label.setWordWrap(True)
+        self.message_label.setContentsMargins(24, 2, 24, 4)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
         self.rows_container = QWidget()
         self.rows_layout = QVBoxLayout(self.rows_container)
-        self.rows_layout.setSpacing(7)
+        self.rows_layout.setContentsMargins(14, 8, 14, 24)
+        self.rows_layout.setSpacing(10)
         self.scroll_area.setWidget(self.rows_container)
         stamp_controls = QHBoxLayout()
-        self.previous_line_button = QPushButton("Previous line")
-        self.stamp_button = QPushButton("Stamp next line (Space)")
-        self.stamp_button.setObjectName("primary")
-        self.shift_all_button = QPushButton("Shift all...")
+        stamp_controls.setContentsMargins(160, 0, 160, 22)
+        stamp_controls.setSpacing(12)
+        self.previous_line_button = QPushButton("^")
+        self.previous_line_button.setObjectName("navButton")
+        self.previous_line_button.setToolTip("Move to previous lyric line")
+        self.stamp_button = QPushButton("v")
+        self.stamp_button.setObjectName("navButtonLight")
+        self.stamp_button.setToolTip("Stamp the selected lyric, then target the next unstamped line")
         self.undo_button = QPushButton("Undo")
         self.redo_button = QPushButton("Redo")
         self.clear_all_button = QPushButton("Clear all")
-        for button in (self.previous_line_button, self.stamp_button, self.shift_all_button, self.undo_button, self.redo_button, self.clear_all_button):
-            stamp_controls.addWidget(button)
-        stamp_controls.addStretch()
-        playback = QHBoxLayout()
-        self.previous_button = QPushButton("Previous track")
+        self.undo_button.setObjectName("secondaryActionButton")
+        self.redo_button.setObjectName("secondaryActionButton")
+        self.clear_all_button.setObjectName("dangerActionButton")
+        stamp_controls.addWidget(self.previous_line_button)
+        stamp_controls.addWidget(self.stamp_button)
+        playback = QFrame()
+        playback.setObjectName("playbackBar")
+        playback_layout = QHBoxLayout(playback)
+        playback_layout.setContentsMargins(14, 10, 14, 10)
+        playback_layout.setSpacing(10)
+        self.previous_button = QPushButton("<<")
         self.play_pause_button = QPushButton("Play")
-        self.next_button = QPushButton("Next track")
+        self.next_button = QPushButton(">>")
         self.position_label = QLabel("00:00")
         self.duration_label = QLabel("00:00")
         self.progress_slider = QSlider(Qt.Horizontal)
-        playback.addWidget(self.previous_button)
-        playback.addWidget(self.play_pause_button)
-        playback.addWidget(self.next_button)
-        playback.addWidget(self.position_label)
-        playback.addWidget(self.progress_slider, 1)
-        playback.addWidget(self.duration_label)
-        layout.addLayout(header)
+        self.progress_slider.setRange(0, 1)
+        self.progress_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.play_pause_button.setObjectName("playButton")
+        for button in (self.previous_button, self.next_button):
+            button.setObjectName("roundButton")
+        playback_layout.addWidget(self.previous_button)
+        playback_layout.addWidget(self.play_pause_button)
+        playback_layout.addWidget(self.next_button)
+        playback_layout.addSpacing(8)
+        playback_layout.addWidget(self.position_label)
+        playback_layout.addWidget(self.progress_slider, 1)
+        playback_layout.addWidget(self.duration_label)
+        playback_layout.addWidget(self.undo_button)
+        playback_layout.addWidget(self.redo_button)
+        playback_layout.addWidget(self.clear_all_button)
+        layout.addWidget(header)
         layout.addWidget(self.message_label)
         layout.addWidget(self.scroll_area, 1)
         layout.addLayout(stamp_controls)
-        layout.addLayout(playback)
+        layout.addWidget(playback)
         return page
 
     def _connect_actions(self) -> None:
@@ -647,32 +684,61 @@ class MainWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
         for index, line in enumerate(self.lines):
-            row = QFrame()
-            row.setObjectName("lyricRow")
-            row.setProperty("active", index == self.current_index)
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(8, 5, 8, 5)
-            clear = QPushButton("Clear")
-            clear.setToolTip("Remove this line timestamp")
-            clear.clicked.connect(lambda _=False, i=index: self.clear_line_timestamp(i))
-            minus_big, minus, plus, plus_big = (QPushButton(text) for text in ("-1s", "-100", "+100", "+1s"))
-            minus_big.clicked.connect(lambda _=False, i=index: self.adjust_line(i, -1000))
-            minus.clicked.connect(lambda _=False, i=index: self.adjust_line(i, -100))
-            plus.clicked.connect(lambda _=False, i=index: self.adjust_line(i, 100))
-            plus_big.clicked.connect(lambda _=False, i=index: self.adjust_line(i, 1000))
-            time = QLabel(format_position(line.timestamp_ms))
-            time.setMinimumWidth(74)
-            self.time_labels.append(time)
-            preview = QPushButton("Preview")
-            preview.clicked.connect(lambda _=False, i=index: self.preview_line(i))
-            lyric = QLabel(line.text)
-            lyric.setWordWrap(True)
-            for widget in (clear, minus_big, minus, time, plus, plus_big, preview, lyric):
-                row_layout.addWidget(widget)
-            row_layout.setStretch(7, 1)
+            row = self._build_lyric_row(index, line)
             self.rows_layout.addWidget(row)
             self.row_widgets.append(row)
         self.rows_layout.addStretch()
+
+    def _build_lyric_row(self, index: int, line: LyricLine) -> QFrame:
+        row = QFrame()
+        row.setObjectName("lyricRow")
+        row.setProperty("active", index == self.current_index)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(14, 8, 14, 8)
+        row_layout.setSpacing(12)
+
+        clear = QPushButton("X")
+        clear.setObjectName("iconButton")
+        clear.setToolTip("Remove this line timestamp")
+        clear.setAccessibleName("Clear timestamp")
+        clear.clicked.connect(lambda _=False: self.clear_line_timestamp(index))
+
+        minus_big, minus, plus, plus_big = (self._small_button(text) for text in ("<<", "<", ">", ">>"))
+        for button, tooltip in zip((minus_big, minus, plus, plus_big), ("Subtract one second", "Subtract 100 milliseconds", "Add 100 milliseconds", "Add one second")):
+            button.setToolTip(tooltip)
+        minus_big.clicked.connect(lambda _=False: self.adjust_line(index, -1000))
+        minus.clicked.connect(lambda _=False: self.adjust_line(index, -100))
+        plus.clicked.connect(lambda _=False: self.adjust_line(index, 100))
+        plus_big.clicked.connect(lambda _=False: self.adjust_line(index, 1000))
+
+        time = QLabel(format_position(line.timestamp_ms))
+        time.setObjectName("timePill")
+        time.setAlignment(Qt.AlignCenter)
+        self.time_labels.append(time)
+        controls = QFrame()
+        controls.setObjectName("controlGroup")
+        controls_layout = QHBoxLayout(controls)
+        controls_layout.setContentsMargins(6, 0, 6, 0)
+        controls_layout.setSpacing(0)
+        for widget in (minus_big, minus, time, plus, plus_big):
+            controls_layout.addWidget(widget)
+
+        preview = QPushButton("Play")
+        preview.setObjectName("playRowButton")
+        preview.setToolTip("Preview this timestamp")
+        preview.clicked.connect(lambda _=False: self.preview_line(index))
+        lyric = QLabel(line.text)
+        lyric.setObjectName("lyricText")
+        lyric.setWordWrap(True)
+        for widget in (clear, controls, preview, lyric):
+            row_layout.addWidget(widget)
+        row_layout.setStretch(3, 1)
+        return row
+
+    def _small_button(self, text: str) -> QPushButton:
+        button = QPushButton(text)
+        button.setObjectName("smallButton")
+        return button
 
     def _refresh_row_timestamp(self, index: int) -> None:
         if 0 <= index < len(self.time_labels):
@@ -813,19 +879,47 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("""
             QMainWindow, QWidget { background: #101010; color: #e8f3ff; }
             QMenuBar, QMenu, QStatusBar { background: #151515; color: #d6e7ff; }
+            QMenu { border: 1px solid #3a3a3a; padding: 6px; }
+            QMenu::item { padding: 8px 32px 8px 12px; min-height: 22px; border-radius: 4px; }
+            QMenu::item:selected { background: #236dff; color: white; }
+            QMenu::item:disabled { color: #777; }
+            QMenu::separator { height: 1px; background: #383838; margin: 6px 4px; }
             #title { color: #58a6ff; font-size: 30px; font-weight: 700; }
             #section { color: #d6e7ff; font-size: 16px; font-weight: 700; }
             #muted { color: #91a8c1; }
             #warning { color: #8fc5ff; min-height: 20px; }
-            #track { color: #eef6ff; font-size: 15px; font-weight: 700; }
+            #trackHeader, #playbackBar { background: #101010; border: 0; }
+            #trackTitle { color: #eef6ff; font-size: 16px; font-weight: 700; }
+            #trackArtist { color: #8ba8c8; }
+            #warningText { color: #7dbaff; }
             QPushButton { background: #292929; border: 1px solid #414141; border-radius: 6px; padding: 7px 11px; color: #e8f3ff; }
             QPushButton:hover { background: #363636; } QPushButton:disabled { color: #777; background: #1a1a1a; }
             #primary { background: #236dff; border-color: #4b90ff; color: white; font-weight: 700; }
             #primary:hover { background: #357cff; }
+            #secondaryButton { background: #1e1e1e; border-color: #343434; }
+            #ghostButton { background: transparent; border-color: #343434; }
             QPlainTextEdit, QListWidget, QScrollArea { background: #161616; border: 1px solid #343434; border-radius: 6px; }
             QSpinBox { background: #202020; border: 1px solid #444; border-radius: 5px; padding: 5px; }
-            #lyricRow { background: #171717; border: 1px solid #272727; border-radius: 6px; }
-            #lyricRow[active="true"] { border-color: #236dff; background: #17213a; }
+            #lyricRow { background: #101010; border: 0; border-radius: 6px; }
+            #lyricRow[active="true"] { border: 1px solid #236dff; background: #101010; }
+            #controlGroup { background: #2d2d2d; border-radius: 18px; }
+            #timePill { color: #eef6ff; min-width: 74px; padding: 8px 10px; font-weight: 650; }
+            #lyricText { color: #59aaff; font-size: 15px; font-weight: 650; }
+            #smallButton { background: transparent; border: 0; color: #edf6ff; min-width: 34px; max-width: 42px; padding: 6px; border-radius: 14px; }
+            #smallButton:hover { background: #3a3a3a; }
+            #iconButton, #playRowButton, #roundButton { background: #2a2a2a; color: #edf6ff; min-width: 38px; max-width: 54px; min-height: 34px; border: 0; border-radius: 17px; padding: 6px 8px; }
+            #playRowButton { min-width: 46px; }
+            #iconButton:hover, #playRowButton:hover { background: #373737; }
+            #playButton { background: white; color: #111; min-width: 46px; max-width: 56px; min-height: 36px; border: 0; border-radius: 18px; padding: 6px 10px; }
+            #roundButton { background: transparent; }
+            #roundButton:hover { background: #252525; }
+            #secondaryActionButton, #dangerActionButton { min-width: 72px; min-height: 36px; border-radius: 8px; padding: 7px 10px; font-weight: 700; }
+            #secondaryActionButton { background: #262626; border-color: #3a3a3a; }
+            #dangerActionButton { background: #331f1f; color: #ffdede; border-color: #7a3434; }
+            #navButton, #navButtonLight { min-height: 48px; min-width: 150px; border: 0; border-radius: 8px; font-size: 18px; }
+            #navButton { background: #333; color: #9a9a9a; }
+            #navButtonLight { background: #f5f5f5; color: #101010; }
+            #navButtonLight:hover { background: #dceaff; }
             QSlider::groove:horizontal { height: 5px; background: #353535; border-radius: 2px; }
             QSlider::sub-page:horizontal { background: #236dff; } QSlider::handle:horizontal { width: 15px; margin: -5px 0; background: white; border-radius: 7px; }
         """)
