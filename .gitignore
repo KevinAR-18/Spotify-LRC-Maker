@@ -8,4 +8,7 @@ dist/
 *.egg-info/
 *.spec
 *.exe
+# Keep notes out of Git, but retain dependency manifests.
 *.txt
+!requirements.txt
+!requirements-dev.txt
