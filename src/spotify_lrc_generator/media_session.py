@@ -13,6 +13,12 @@ class MediaSessionError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class CommandResult:
+    success: bool
+    message: str = ""
+
+
 @dataclass
 class MediaState:
     available: bool
@@ -31,30 +37,40 @@ def get_media_state() -> MediaState:
     return asyncio.run(_with_timeout(_get_media_state()))
 
 
-def play_pause() -> bool:
-    return asyncio.run(_with_timeout(_play_pause(), fallback=False))
+def play_pause() -> CommandResult:
+    return _run_command(_play_pause())
 
 
-def next_track() -> bool:
-    return asyncio.run(_with_timeout(_command("try_skip_next_async"), fallback=False))
+def next_track() -> CommandResult:
+    return _run_command(_command("try_skip_next_async"))
 
 
-def previous_track() -> bool:
-    return asyncio.run(_with_timeout(_command("try_skip_previous_async"), fallback=False))
+def previous_track() -> CommandResult:
+    return _run_command(_command("try_skip_previous_async"))
 
 
-def seek_to(position_ms: int) -> bool:
-    return asyncio.run(_with_timeout(_seek_to(position_ms), fallback=False))
+def seek_to(position_ms: int) -> CommandResult:
+    return _run_command(_seek_to(position_ms))
 
 
-def play_from(position_ms: int) -> bool:
-    return asyncio.run(_with_timeout(_play_from(position_ms), fallback=False))
+def play_from(position_ms: int) -> CommandResult:
+    return _run_command(_play_from(position_ms))
+
+
+def _run_command(coroutine) -> CommandResult:
+    try:
+        accepted = asyncio.run(_with_timeout(coroutine, fallback=False))
+        return CommandResult(True) if accepted else CommandResult(False, "Spotify did not accept that command.")
+    except (asyncio.TimeoutError, TimeoutError):
+        return CommandResult(False, "Spotify did not respond in time.")
+    except Exception as exc:  # noqa: BLE001 - WinRT failures use implementation-specific exceptions.
+        return CommandResult(False, f"Spotify command failed: {exc}")
 
 
 async def _with_timeout(coro, fallback=None):
     try:
         return await asyncio.wait_for(coro, timeout=MEDIA_TIMEOUT_SECONDS)
-    except TimeoutError:
+    except (asyncio.TimeoutError, TimeoutError):
         if fallback is not None:
             return fallback
         return MediaState(False, message="Timed out while connecting to Spotify media session.")
@@ -109,7 +125,7 @@ async def _get_media_state() -> MediaState:
                 f"{exc}"
             ),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - WinRT failures use implementation-specific exceptions.
         return MediaState(False, message=f"Unable to read media session: {exc}")
 
 
@@ -158,7 +174,9 @@ async def _play_from(position_ms: int) -> bool:
 
 async def _get_spotify_session() -> Any | None:
     try:
-        from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
+        from winrt.windows.media.control import (
+            GlobalSystemMediaTransportControlsSessionManager,
+        )
     except ImportError as winrt_exc:
         raise ImportError(f"PyWinRT media control unavailable ({winrt_exc})") from winrt_exc
 
