@@ -32,12 +32,14 @@ if not exist .venv\Scripts\pyinstaller.exe (
 
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
+if not exist "%DIST_APP_DIR%" mkdir "%DIST_APP_DIR%"
 
 echo Building executable...
 echo.
 
 .venv\Scripts\pyinstaller.exe ^
   --name "Spotify LRC Maker" ^
+  --paths "src" ^
   --onefile ^
   --windowed ^
   --icon=icon.ico ^
@@ -107,22 +109,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Copying runtime assets...
+rem Required by the InstallForge project when creating the installer.
 copy /y icon.ico "%DIST_APP_DIR%\icon.ico" >nul
 if errorlevel 1 (
     echo.
     echo ========================================
-    echo ERROR: Failed to copy icon.ico
-    echo ========================================
-    pause
-    exit /b 1
-)
-
-xcopy /e /i /y "images" "%DIST_APP_DIR%\images" >nul
-if errorlevel 1 (
-    echo.
-    echo ========================================
-    echo ERROR: Failed to copy images
+    echo ERROR: Failed to copy the installer icon
     echo ========================================
     pause
     exit /b 1
@@ -132,8 +124,8 @@ echo.
 echo ========================================
 echo Build complete: %APP_NAME% %VERSION%
 echo Output: %DIST_APP_DIR%\Spotify LRC Maker.exe
-echo Icon: %DIST_APP_DIR%\icon.ico
-echo Images: %DIST_APP_DIR%\images
+echo Runtime assets are bundled in the executable.
+echo Installer icon: %DIST_APP_DIR%\icon.ico
 echo ========================================
 echo.
 pause
