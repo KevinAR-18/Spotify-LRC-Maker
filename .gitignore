@@ -14,3 +14,4 @@ releases/*
 *.txt
 !requirements.txt
 !requirements-dev.txt
+spotlrcmaker.ifp
