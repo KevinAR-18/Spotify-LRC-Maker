@@ -5,6 +5,8 @@ __pycache__/
 .ruff_cache/
 build/
 dist/
+releases/*
+!releases/.gitkeep
 *.egg-info/
 *.spec
 *.exe
